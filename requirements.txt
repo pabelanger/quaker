@@ -1,0 +1,7 @@
+Babel>=0.9.6
+oslo.messaging>=1.3.0
+pbr>=0.5.21,<1.0
+tornado
+
+-f http://tarballs.kickstand-project.org/python-ami/python-ami-master.tar.gz#egg=python-ami-0.0.1a
+python-ami>=0.0.1a

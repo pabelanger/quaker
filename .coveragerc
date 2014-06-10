@@ -1,0 +1,7 @@
+[run]
+branch = True
+source = quaker
+omit = quaker/tests/*,quaker/openstack/*
+
+[report]
+ignore-errors = True
