@@ -13,6 +13,7 @@
 # under the License.
 
 from oslo.config import cfg
+from payload import messaging
 
 from quaker import version
 
@@ -22,3 +23,4 @@ CONF = cfg.CONF
 def parse_args(argv):
     CONF(
         argv[1:], project='quaker', version=version.VERSION_STRING)
+    messaging.setup()

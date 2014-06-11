@@ -12,6 +12,8 @@
 
 from ami import client
 from oslo.config import cfg
+from payload import messaging
+from payload.openstack.common import context
 from tornado.ioloop import IOLoop
 
 from quaker.openstack.common import log as logging
@@ -33,17 +35,44 @@ CONF.register_opts(OPTS)
 LOG = logging.getLogger(__name__)
 
 
+def _send_notification(event, payload):
+    notification = event.replace(" ", "_")
+    notification = "queue.%s" % notification
+    notifier = messaging.get_notifier(publisher_id='payload')
+    notifier.info(context.RequestContext(), notification, payload)
+
+
 class Monitor(object):
     def __init__(self):
         self.ami = client.AMIClient()
-        self.ami.register_event('Join', self.process_event)
-        self.ami.register_event('QueueCallerAbandon', self.process_event)
+        self.ami.register_event('AgentCalled', self._handle_agent_called)
+#        self.ami.register_event('AgentRingNoAnswer', self.process_event)
+#        self.ami.register_event('Join', self.process_event)
+#        self.ami.register_event('QueueCallerAbandon', self.process_event)
 
     def on_connect(self, data):
         LOG.info('Connected to AMI')
 
     def process_event(self, data):
         print data
+
+    def _handle_agent_called(self, data):
+        vars = data['variable'].split(',')
+        callid = data['uniqueid']
+        for var in vars:
+            key, value = var.split('=', 1)
+            if key == 'SIPCALLID':
+                callid = value
+        json = {
+            'caller': {
+                'id': callid,
+                'name': data['connectedlinename'],
+                'number': data['connectedlinenum'],
+            },
+        }
+
+        LOG.info(json)
+        _send_notification('Alerting', json)
 
     def run(self):
         self.ami.connect(

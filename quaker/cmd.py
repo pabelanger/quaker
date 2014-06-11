@@ -12,6 +12,9 @@
 
 import sys
 
+import eventlet
+eventlet.monkey_patch(socket=True, select=True, thread=True)
+
 from quaker import config
 from quaker import monitor
 from quaker.openstack.common import log as logging
