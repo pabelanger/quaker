@@ -38,7 +38,7 @@ LOG = logging.getLogger(__name__)
 def _send_notification(event, payload):
     notification = event.replace(" ", "_")
     notification = "queue.%s" % notification
-    notifier = messaging.get_notifier(publisher_id='payload')
+    notifier = messaging.get_notifier(publisher_id='quaker')
     notifier.info(context.RequestContext(), notification, payload)
 
 
@@ -46,9 +46,10 @@ class Monitor(object):
     def __init__(self):
         self.ami = client.AMIClient()
         self.ami.register_event('AgentCalled', self._handle_agent_called)
-#        self.ami.register_event('AgentRingNoAnswer', self.process_event)
-#        self.ami.register_event('Join', self.process_event)
-#        self.ami.register_event('QueueCallerAbandon', self.process_event)
+        self.ami.register_event(
+            'AgentRingNoAnswer', self._handle_agent_ring_no_answer)
+        self.ami.register_event('Join', self._handle_join)
+        self.ami.register_event('QueueCallerAbandon', self.process_event)
 
     def on_connect(self, data):
         LOG.info('Connected to AMI')
@@ -56,23 +57,72 @@ class Monitor(object):
     def process_event(self, data):
         print data
 
-    def _handle_agent_called(self, data):
-        vars = data['variable'].split(',')
-        callid = data['uniqueid']
-        for var in vars:
+    def _get_quaker_vars(self, variables):
+        res = {}
+        for var in variables.split(','):
             key, value = var.split('=', 1)
-            if key == 'SIPCALLID':
-                callid = value
-        json = {
-            'caller': {
-                'id': callid,
-                'name': data['connectedlinename'],
-                'number': data['connectedlinenum'],
-            },
-        }
+            if key.startswith('QUAKER_'):
+                res[key[7:].lower()] = value
 
+        return res
+
+    def _get_caller(self, variables):
+        json = {
+            'id': variables['caller_id'],
+            'name': variables['caller_name'],
+            'number': variables['caller_number'],
+        }
+        return json
+
+    def _get_queue(self, variables):
+        json = {
+            'id': None,
+            'name': variables['queue_name'],
+            'number': variables['queue_number'],
+        }
+        return json
+
+    def _handle_join(self, data):
+        print data
+        variables = self._get_quaker_vars(data['variable'])
+        caller = self._get_caller(variables)
+        queue = self._get_queue(variables)
+
+        json = {
+            'caller': caller,
+            'queue': queue,
+            'position': data['position'],
+        }
         LOG.info(json)
-        _send_notification('Alerting', json)
+        _send_notification('enter', json)
+
+    def _handle_agent_ring_no_answer(self, data):
+        variables = self._get_quaker_vars(data['variable'])
+        caller = self._get_caller(variables)
+        queue = self._get_queue(variables)
+
+        json = {
+            'caller': caller,
+            'queue': queue,
+            'reason': '19',
+        }
+        LOG.info(json)
+        _send_notification('memeber.cancel', json)
+
+    def _handle_agent_called(self, data):
+        variables = self._get_quaker_vars(data['variable'])
+        caller = self._get_caller(variables)
+
+        json = {
+            'called': {
+                'id': None,
+                'name': None,
+                'number': data['extension'],
+            },
+            'caller': caller,
+        }
+        LOG.info(json)
+        _send_notification('memeber.alerting', json)
 
     def run(self):
         self.ami.connect(
