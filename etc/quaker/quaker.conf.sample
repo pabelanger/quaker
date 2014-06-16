@@ -209,6 +209,14 @@
 
 
 #
+# Options defined in quaker.cmd.client
+#
+
+# URL for faye pub/sub messaging bus. (string value)
+#faye=http://127.0.0.1:4000/faye
+
+
+#
 # Options defined in quaker.openstack.common.log
 #
 

@@ -46,6 +46,8 @@ class Monitor(object):
     def __init__(self):
         self.ami = client.AMIClient()
         self.ami.register_event('AgentCalled', self._handle_agent_called)
+        self.ami.register_event('AgentComplete', self._handle_agent_complete)
+        self.ami.register_event('AgentConnect', self._handle_agent_connect)
         self.ami.register_event(
             'AgentRingNoAnswer', self._handle_agent_ring_no_answer)
         self.ami.register_event('Join', self._handle_join)
@@ -82,47 +84,79 @@ class Monitor(object):
         }
         return json
 
-    def _handle_join(self, data):
-        print data
-        variables = self._get_quaker_vars(data['variable'])
-        caller = self._get_caller(variables)
-        queue = self._get_queue(variables)
+    def _get_member_number(self, data):
+        res = data
 
-        json = {
-            'caller': caller,
-            'queue': queue,
-            'position': data['position'],
-        }
+        return res
+
+    def _get_common_headers(self, data):
+        res = {}
+        res['caller'] = self._get_caller(data)
+        res['queue'] = self._get_queue(data)
+
+        return res
+
+    def _handle_join(self, data):
+        variables = self._get_quaker_vars(data['variable'])
+
+        json = self._get_common_headers(variables)
+        json['id'] = data['uniqueid']
+        json['position'] = data['position']
+
         LOG.info(json)
         _send_notification('enter', json)
 
     def _handle_agent_ring_no_answer(self, data):
         variables = self._get_quaker_vars(data['variable'])
-        caller = self._get_caller(variables)
-        queue = self._get_queue(variables)
 
-        json = {
-            'caller': caller,
-            'queue': queue,
-            'reason': '19',
-        }
+        json = self._get_common_headers(variables)
+        json['id'] = data['uniqueid']
+        json['reason'] = '19'
+
         LOG.info(json)
-        _send_notification('memeber.cancel', json)
+        _send_notification('member.cancel', json)
 
     def _handle_agent_called(self, data):
         variables = self._get_quaker_vars(data['variable'])
-        caller = self._get_caller(variables)
 
-        json = {
-            'called': {
-                'id': None,
-                'name': None,
-                'number': data['extension'],
-            },
-            'caller': caller,
+        json = self._get_common_headers(variables)
+        json['id'] = data['uniqueid']
+        json['member'] = {
+            'id': None,
+            'name': data['agentname'],
+            'number': self._get_member_number(data['agentcalled']),
         }
+
         LOG.info(json)
-        _send_notification('memeber.alerting', json)
+        _send_notification('member.alert', json)
+
+    def _handle_agent_complete(self, data):
+        variables = self._get_quaker_vars(data['variable'])
+
+        json = self._get_common_headers(variables)
+        json['id'] = data['uniqueid']
+        json['member'] = {
+            'id': None,
+            'name': data['membername'],
+            'number': self._get_member_number(data['member']),
+        }
+
+        LOG.info(json)
+        _send_notification('member.complete', json)
+
+    def _handle_agent_connect(self, data):
+        variables = self._get_quaker_vars(data['variable'])
+
+        json = self._get_common_headers(variables)
+        json['id'] = data['uniqueid']
+        json['member'] = {
+            'id': None,
+            'name': data['membername'],
+            'number': self._get_member_number(data['member']),
+        }
+
+        LOG.info(json)
+        _send_notification('member.connect', json)
 
     def run(self):
         self.ami.connect(
