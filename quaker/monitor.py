@@ -51,7 +51,8 @@ class Monitor(object):
         self.ami.register_event(
             'AgentRingNoAnswer', self._handle_agent_ring_no_answer)
         self.ami.register_event('Join', self._handle_join)
-        self.ami.register_event('QueueCallerAbandon', self.process_event)
+        self.ami.register_event(
+            'QueueCallerAbandon', self._handle_queue_caller_abandon)
 
     def on_connect(self, data):
         LOG.info('Connected to AMI')
@@ -95,16 +96,6 @@ class Monitor(object):
         res['queue'] = self._get_queue(data)
 
         return res
-
-    def _handle_join(self, data):
-        variables = self._get_quaker_vars(data['variable'])
-
-        json = self._get_common_headers(variables)
-        json['id'] = data['uniqueid']
-        json['position'] = data['position']
-
-        LOG.info(json)
-        _send_notification('enter', json)
 
     def _handle_agent_ring_no_answer(self, data):
         variables = self._get_quaker_vars(data['variable'])
@@ -157,6 +148,27 @@ class Monitor(object):
 
         LOG.info(json)
         _send_notification('member.connect', json)
+
+    def _handle_join(self, data):
+        variables = self._get_quaker_vars(data['variable'])
+
+        json = self._get_common_headers(variables)
+        json['id'] = data['uniqueid']
+        json['position'] = data['position']
+
+        LOG.info(json)
+        _send_notification('enter', json)
+
+    def _handle_queue_caller_abandon(self, data):
+        variables = self._get_quaker_vars(data['variable'])
+
+        json = self._get_common_headers(variables)
+        json['id'] = data['uniqueid']
+        json['position'] = data['position']
+        json['reason'] = '0'
+
+        LOG.info(json)
+        _send_notification('exit', json)
 
     def run(self):
         self.ami.connect(

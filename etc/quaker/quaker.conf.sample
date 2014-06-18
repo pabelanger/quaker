@@ -299,6 +299,25 @@
 #syslog_log_facility=LOG_USER
 
 
+[influxdb]
+
+#
+# Options defined in quaker.cmd.client
+#
+
+# URL for influxdb service. (string value)
+#url=http://127.0.0.1:8086
+
+# Username for the influxdb service. (string value)
+#username=<None>
+
+# Password for the influxdb service. (string value)
+#password=<None>
+
+# Database name of the influxdb service. (string value)
+#database=payload
+
+
 [matchmaker_ring]
 
 #
