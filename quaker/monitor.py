@@ -10,6 +10,8 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import re
+
 from ami import client
 from oslo.config import cfg
 from payload import messaging
@@ -53,6 +55,8 @@ class Monitor(object):
         self.ami.register_event('Join', self._handle_join)
         self.ami.register_event(
             'QueueCallerAbandon', self._handle_queue_caller_abandon)
+        self.ami.register_event(
+            'QueueMemberStatus', self._handle_queue_member_state)
 
     def on_connect(self, data):
         LOG.info('Connected to AMI')
@@ -68,6 +72,12 @@ class Monitor(object):
                 res[key[7:].lower()] = value
 
         return res
+
+    def _get_called(self, variables):
+        json = {
+            'number': variables['called_number'],
+        }
+        return json
 
     def _get_caller(self, variables):
         json = {
@@ -86,12 +96,13 @@ class Monitor(object):
         return json
 
     def _get_member_number(self, data):
-        res = data
+        res = re.search('\d+(^@)?', data)
 
-        return res
+        return res.group()
 
     def _get_common_headers(self, data):
         res = {}
+        res['called'] = self._get_called(data)
         res['caller'] = self._get_caller(data)
         res['queue'] = self._get_queue(data)
 
@@ -169,6 +180,24 @@ class Monitor(object):
 
         LOG.info(json)
         _send_notification('exit', json)
+
+    def _handle_queue_member_state(self, data):
+        json = {
+            'queue': {
+                'id': None,
+                'name': data['queue'],
+                'number': None,
+            },
+        }
+        json['member'] = {
+            'id': None,
+            'name': data['membername'],
+            'number': self._get_member_number(data['location']),
+        }
+        json['status'] = data['status']
+
+        LOG.info(json)
+        _send_notification('member.state', json)
 
     def run(self):
         self.ami.connect(
