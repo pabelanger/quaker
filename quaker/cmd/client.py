@@ -66,6 +66,38 @@ class NotificationEndpoint(object):
             self.__faye(event_type, payload, metadata)
             self.__influx(event_type, payload, metadata)
 
+    def _handle_queue_enter(self, event_type, payload, metadata):
+        event = event_type.replace(".", "_")
+        data = self.__influx_common_data(payload)
+        data['name'] = event
+        self.__influx_post(data)
+        self.__queue_callers_count_raw(payload, 1)
+
+    def __queue_callers_count_raw(self, payload, value):
+        data = self.__influx_common_data(payload)
+        data['name'] = 'queue.callers.count.raw'
+        data['columns'].append('value')
+        for sublist in data['points']:
+            sublist.append(value)
+
+        res = self.__influx_post(data)
+
+    def _handle_queue_member_pause(self, event_type, payload, metadata):
+        event = event_type.replace(".", "_")
+        data = self.__influx_queue_data(payload)
+        data['name'] = event
+        data['columns'].append('member_id')
+        data['columns'].append('member_name')
+        data['columns'].append('member_number')
+        data['columns'].append('reason')
+        for sublist in data['points']:
+            sublist.append(payload['member']['id'])
+            sublist.append(payload['member']['name'])
+            sublist.append(payload['member']['number'])
+            sublist.append(payload['reason'])
+
+        self.__influx_post(data)
+
     def _handle_queue_member_state(self, event_type, payload, metadata):
         event = event_type.replace(".", "_")
         data = self.__influx_queue_data(payload)
@@ -95,6 +127,7 @@ class NotificationEndpoint(object):
             sublist.append(payload['member']['number'])
 
         self.__influx_post(data)
+        self.__queue_callers_count_raw(payload, -1)
 
     def __faye(self, event_type, payload, metadata):
         return 

@@ -56,6 +56,8 @@ class Monitor(object):
         self.ami.register_event(
             'QueueCallerAbandon', self._handle_queue_caller_abandon)
         self.ami.register_event(
+            'QueueMemberPaused', self._handle_queue_member_paused)
+        self.ami.register_event(
             'QueueMemberStatus', self._handle_queue_member_state)
 
     def on_connect(self, data):
@@ -171,9 +173,14 @@ class Monitor(object):
         _send_notification('enter', json)
 
     def _handle_queue_caller_abandon(self, data):
-        variables = self._get_quaker_vars(data['variable'])
+        json = {
+            'queue': {
+                'id': None,
+                'name': data['queue'],
+                'number': None,
+            },
+        }
 
-        json = self._get_common_headers(variables)
         json['id'] = data['uniqueid']
         json['position'] = data['position']
         json['reason'] = '0'
@@ -198,6 +205,24 @@ class Monitor(object):
 
         LOG.info(json)
         _send_notification('member.state', json)
+
+    def _handle_queue_member_paused(self, data):
+        json = {
+            'queue': {
+                'id': None,
+                'name': data['queue'],
+                'number': None,
+            },
+        }
+        json['member'] = {
+            'id': None,
+            'name': data['membername'],
+            'number': self._get_member_number(data['location']),
+        }
+        json['reason'] = data['paused']
+
+        LOG.info(json)
+        _send_notification('member.pause', json)
 
     def run(self):
         self.ami.connect(
