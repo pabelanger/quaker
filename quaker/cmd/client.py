@@ -88,11 +88,37 @@ class NotificationEndpoint(object):
 
         res = self.__influx_post(data)
 
+    def _handle_queue_member_add(self, event_type, payload, metadata):
+        data = self.__influx_queue_data(payload)
+        data['name'] = event_type
+        data['columns'].append('member_id')
+        data['columns'].append('member_name')
+        data['columns'].append('member_number')
+        for sublist in data['points']:
+            sublist.append(payload['member']['id'])
+            sublist.append(payload['member']['name'])
+            sublist.append(payload['member']['number'])
+
+        self.__influx_post(data)
+
     def _handle_queue_member_login(self, event_type, payload, metadata):
         self.__queue_members_count_raw(payload, 1)
 
     def _handle_queue_member_logout(self, event_type, payload, metadata):
         self.__queue_members_count_raw(payload, -1)
+
+    def _handle_queue_member_remove(self, event_type, payload, metadata):
+        data = self.__influx_queue_data(payload)
+        data['name'] = event_type
+        data['columns'].append('member_id')
+        data['columns'].append('member_name')
+        data['columns'].append('member_number')
+        for sublist in data['points']:
+            sublist.append(payload['member']['id'])
+            sublist.append(payload['member']['name'])
+            sublist.append(payload['member']['number'])
+
+        self.__influx_post(data)
 
     def __queue_members_count_raw(self, payload, value):
         data = self.__influx_queue_member_data(payload)

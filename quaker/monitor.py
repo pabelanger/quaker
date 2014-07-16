@@ -193,36 +193,50 @@ class Monitor(object):
         _send_notification('exit', json)
 
     def _handle_queue_member_added(self, data):
+        json = {
+            'member': {
+                'id': None,
+                'name': data['membername'],
+                'number': self._get_member_number(data['location']),
+            },
+        }
+
         if data['queue'] == '_CSRs':
-            self._handle_queue_member_login(data)
+            LOG.info(json)
+            _send_notification('member.login', json)
+            return
 
-    def _handle_queue_member_login(self, data):
-        json = {
-            'member': {
-                'id': None,
-                'name': data['membername'],
-                'number': self._get_member_number(data['location']),
-            },
+        json['queue'] = {
+            'id': None,
+            'name': data['queue'],
+            'number': None,
         }
 
         LOG.info(json)
-        _send_notification('member.login', json)
-
-    def _handle_queue_member_logout(self, data):
-        json = {
-            'member': {
-                'id': None,
-                'name': data['membername'],
-                'number': self._get_member_number(data['location']),
-            },
-        }
-
-        LOG.info(json)
-        _send_notification('member.logout', json)
+        _send_notification('member.add', json)
 
     def _handle_queue_member_removed(self, data):
+        json = {
+            'member': {
+                'id': None,
+                'name': data['membername'],
+                'number': self._get_member_number(data['location']),
+            },
+        }
+
         if data['queue'] == '_CSRs':
-            self._handle_queue_member_logout(data)
+            LOG.info(json)
+            _send_notification('member.logout', json)
+            return
+
+        json['queue'] = {
+            'id': None,
+            'name': data['queue'],
+            'number': None,
+        }
+
+        LOG.info(json)
+        _send_notification('member.remove', json)
 
     def _handle_queue_member_state(self, data):
         json = {
