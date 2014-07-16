@@ -56,7 +56,11 @@ class Monitor(object):
         self.ami.register_event(
             'QueueCallerAbandon', self._handle_queue_caller_abandon)
         self.ami.register_event(
+            'QueueMemberAdded', self._handle_queue_member_added)
+        self.ami.register_event(
             'QueueMemberPaused', self._handle_queue_member_paused)
+        self.ami.register_event(
+            'QueueMemberRemoved', self._handle_queue_member_removed)
         self.ami.register_event(
             'QueueMemberStatus', self._handle_queue_member_state)
 
@@ -187,6 +191,38 @@ class Monitor(object):
 
         LOG.info(json)
         _send_notification('exit', json)
+
+    def _handle_queue_member_added(self, data):
+        if data['queue'] == '_CSRs':
+            self._handle_queue_member_login(data)
+
+    def _handle_queue_member_login(self, data):
+        json = {
+            'member': {
+                'id': None,
+                'name': data['membername'],
+                'number': self._get_member_number(data['location']),
+            },
+        }
+
+        LOG.info(json)
+        _send_notification('member.login', json)
+
+    def _handle_queue_member_logout(self, data):
+        json = {
+            'member': {
+                'id': None,
+                'name': data['membername'],
+                'number': self._get_member_number(data['location']),
+            },
+        }
+
+        LOG.info(json)
+        _send_notification('member.logout', json)
+
+    def _handle_queue_member_removed(self, data):
+        if data['queue'] == '_CSRs':
+            self._handle_queue_member_logout(data)
 
     def _handle_queue_member_state(self, data):
         json = {

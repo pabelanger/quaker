@@ -67,11 +67,17 @@ class NotificationEndpoint(object):
             self.__influx(event_type, payload, metadata)
 
     def _handle_queue_enter(self, event_type, payload, metadata):
-        event = event_type.replace(".", "_")
         data = self.__influx_common_data(payload)
-        data['name'] = event
+        data['name'] = event_type
         self.__influx_post(data)
         self.__queue_callers_count_raw(payload, 1)
+
+    def _handle_queue_exit(self, event_type, payload, metadata):
+        print payload
+        data = self.__influx_common_data(payload)
+        data['name'] = event_type
+        self.__influx_post(data)
+        self.__queue_callers_count_raw(payload, -1)
 
     def __queue_callers_count_raw(self, payload, value):
         data = self.__influx_common_data(payload)
@@ -82,10 +88,24 @@ class NotificationEndpoint(object):
 
         res = self.__influx_post(data)
 
+    def _handle_queue_member_login(self, event_type, payload, metadata):
+        self.__queue_members_count_raw(payload, 1)
+
+    def _handle_queue_member_logout(self, event_type, payload, metadata):
+        self.__queue_members_count_raw(payload, -1)
+
+    def __queue_members_count_raw(self, payload, value):
+        data = self.__influx_queue_member_data(payload)
+        data['name'] = 'queue.members.count.raw'
+        data['columns'].append('value')
+        for sublist in data['points']:
+            sublist.append(value)
+
+        res = self.__influx_post(data)
+
     def _handle_queue_member_pause(self, event_type, payload, metadata):
-        event = event_type.replace(".", "_")
         data = self.__influx_queue_data(payload)
-        data['name'] = event
+        data['name'] = event_type
         data['columns'].append('member_id')
         data['columns'].append('member_name')
         data['columns'].append('member_number')
@@ -99,9 +119,8 @@ class NotificationEndpoint(object):
         self.__influx_post(data)
 
     def _handle_queue_member_state(self, event_type, payload, metadata):
-        event = event_type.replace(".", "_")
         data = self.__influx_queue_data(payload)
-        data['name'] = event
+        data['name'] = event_type
         data['columns'].append('member_id')
         data['columns'].append('member_name')
         data['columns'].append('member_number')
@@ -115,9 +134,8 @@ class NotificationEndpoint(object):
         self.__influx_post(data)
 
     def _handle_queue_member_connect(self, event_type, payload, metadata):
-        event = event_type.replace(".", "_")
         data = self.__influx_common_data(payload)
-        data['name'] = event
+        data['name'] = event_type
         data['columns'].append('member_id')
         data['columns'].append('member_name')
         data['columns'].append('member_number')
@@ -145,9 +163,8 @@ class NotificationEndpoint(object):
             CONF.faye, data=simplejson.dumps(data), headers=self.headers)
 
     def __influx(self, event_type, payload, metadata):
-        event = event_type.replace(".", "_")
         data = self.__influx_common_data(payload)
-        data['name'] = event
+        data['name'] = event_type
         self.__influx_post(data)
 
     def __influx_post(self, data):
@@ -196,6 +213,23 @@ class NotificationEndpoint(object):
                     payload['queue']['id'],
                     payload['queue']['name'],
                     payload['queue']['number'],
+                ],
+            ],
+        }
+        return data
+
+    def __influx_queue_member_data(self, payload):
+        data = {
+            'columns': [
+                'member_id',
+                'member_name',
+                'member_number',
+            ],
+            'points': [
+                [
+                    payload['member']['id'],
+                    payload['member']['name'],
+                    payload['member']['number'],
                 ],
             ],
         }
