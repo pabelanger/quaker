@@ -91,11 +91,26 @@ class Monitor(object):
         return json
 
     def _get_caller(self, variables):
-        json = {
-            'id': variables['caller_id'],
-            'name': variables['caller_name'],
-            'number': variables['caller_number'],
-        }
+        try:
+            data = self.redis.get_queue_caller(
+                queue_id=variables['queue_name'], uuid=variables['caller_id'])
+            json = {
+                'uuid': data.uuid,
+                'created_at': data.created_at,
+                'name': data.name,
+                'number': data.number,
+                'position': data.position,
+                'queue_id': data.queue_id,
+            }
+        except Exception as e:
+            json = {
+                'uuid': variables['caller_id'],
+                'created_at': None,
+                'name': variables['caller_name'],
+                'number': variables['caller_number'],
+                'position': None,
+                'queue_id': variables['queue_name'],
+            }
         return json
 
     def _get_queue(self, variables):
@@ -155,7 +170,6 @@ class Monitor(object):
         variables = self._get_quaker_vars(data['variable'])
 
         json = self._get_common_headers(variables)
-        json['id'] = data['uniqueid']
         json['member'] = {
             'id': None,
             'name': data['agentname'],
@@ -191,7 +205,7 @@ class Monitor(object):
         }
 
         self.redis.delete_queue_caller(
-            json['queue']['name'], uuid=json['caller']['id'])
+            json['queue']['name'], uuid=json['caller']['uuid'])
 
         LOG.info(json)
         _send_notification('member.connect', json)
@@ -209,7 +223,7 @@ class Monitor(object):
         }
 
         self.redis.create_queue_caller(
-            json['queue']['name'], uuid=json['caller']['id'],
+            json['queue']['name'], uuid=json['caller']['uuid'],
             name=json['caller']['name'], number=json['caller']['number'])
 
         LOG.info(json)
@@ -225,7 +239,7 @@ class Monitor(object):
         json['reason'] = '0'
 
         self.redis.delete_queue_caller(
-            json['queue']['name'], uuid=json['caller']['id'])
+            json['queue']['name'], uuid=json['caller']['uuid'])
 
         LOG.info(json)
         _send_notification('exit', json)
