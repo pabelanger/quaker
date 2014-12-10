@@ -4,7 +4,7 @@ pbr>=0.5.21,<1.0
 simplejson
 tornado
 
--f http://tarballs.kickstand-project.org/payload/payload-master.tar.gz#egg=payload-0.0.0
-payload>=0.0.0
+http://tarballs.kickstand-project.org/payload/payload-master.tar.gz#egg=payload
+http://tarballs.kickstand-project.org/sarlacc/sarlacc-master.tar.gz#egg=sarlacc
 -f http://tarballs.kickstand-project.org/python-ami/python-ami-master.tar.gz#egg=python-ami-0.0.0
 python-ami
