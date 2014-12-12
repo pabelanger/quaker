@@ -62,8 +62,8 @@ class Monitor(object):
             'QueueMemberPaused', self._handle_queue_member_paused)
         self.ami.register_event(
             'QueueMemberRemoved', self._handle_queue_member_removed)
-        self.ami.register_event(
-            'QueueMemberStatus', self._handle_queue_member_state)
+#        self.ami.register_event(
+#            'QueueMemberStatus', self._handle_queue_member_state)
         self.ami.register_event(
             'UserEvent', self._handle_user_event)
         self.redis = api.get_instance()
@@ -159,6 +159,10 @@ class Monitor(object):
         }
         json['reason'] = '19'
 
+        self.redis.update_queue_member(
+            queue_id=json['queue']['name'], uuid=json['member']['name'],
+            status=1)
+
         LOG.info(json)
         _send_notification('member.cancel', json)
 
@@ -168,6 +172,10 @@ class Monitor(object):
         json = self._get_common_headers(variables)
         json['id'] = data['uniqueid']
         json['reason'] = '19'
+
+        self.redis.update_queue_member(
+            queue_id=json['queue']['name'], uuid=json['member']['name'],
+            status=1)
 
         LOG.info(json)
         _send_notification('member.cancel', json)
@@ -200,6 +208,10 @@ class Monitor(object):
             'number': self._get_member_number(data['member']),
         }
 
+        self.redis.update_queue_member(
+            queue_id=json['queue']['name'], uuid=json['member']['name'],
+            status=1)
+
         LOG.info(json)
         _send_notification('member.complete', json)
 
@@ -219,7 +231,7 @@ class Monitor(object):
 
         self.redis.update_queue_member(
             queue_id=json['queue']['name'], uuid=json['member']['name'],
-            status=2)
+            status=3)
 
         LOG.info(json)
         _send_notification('member.connect', json)
