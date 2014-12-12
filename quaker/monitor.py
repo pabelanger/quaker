@@ -136,10 +136,16 @@ class Monitor(object):
 
     def _handle_user_event(self, data):
         json = {}
+        res = self.redis.get_queue_caller(
+            queue_id=data['quaker_queue_name'],
+            uuid=data['quaker_caller_id'])
         json['caller'] = {
-            'id': data['quaker_caller_id'],
-            'name': data['quaker_caller_name'],
-            'number': data['quaker_caller_number'],
+            'uuid': res.uuid,
+            'created_at': res.created_at,
+            'name': res.name,
+            'number': res.number,
+            'position': res.position,
+            'queue_id': res.queue_id,
         }
         json['queue'] = {
             'id': None,
@@ -176,6 +182,10 @@ class Monitor(object):
             'number': self._get_member_number(data['agentcalled']),
         }
 
+        self.redis.update_queue_member(
+            queue_id=json['queue']['name'], uuid=json['member']['name'],
+            status=6)
+
         LOG.info(json)
         _send_notification('member.alert', json)
 
@@ -207,6 +217,10 @@ class Monitor(object):
         self.redis.delete_queue_caller(
             json['queue']['name'], uuid=json['caller']['uuid'])
 
+        self.redis.update_queue_member(
+            queue_id=json['queue']['name'], uuid=json['member']['name'],
+            status=2)
+
         LOG.info(json)
         _send_notification('member.connect', json)
 
@@ -230,7 +244,6 @@ class Monitor(object):
         _send_notification('enter', json)
 
     def _handle_queue_caller_abandon(self, data):
-        LOG.info('exit')
         variables = self._get_quaker_vars(data['variable'])
         json = self._get_common_headers(variables)
 
@@ -312,8 +325,9 @@ class Monitor(object):
         }
         json['status'] = data['status']
 
-        LOG.info(json)
-        _send_notification('member.state', json)
+        self.redis.update_queue_member(
+            queue_id=data['queue'], uuid=data['membername'],
+            status=data['status'])
 
     def _handle_queue_member_paused(self, data):
         json = {
