@@ -15,7 +15,7 @@ import re
 from ami import client
 from oslo.config import cfg
 from payload import messaging
-from payload.redis import api
+from payload.cache import api
 from payload.openstack.common import context
 from tornado.ioloop import IOLoop
 
@@ -62,8 +62,6 @@ class Monitor(object):
             'QueueMemberPaused', self._handle_queue_member_paused)
         self.ami.register_event(
             'QueueMemberRemoved', self._handle_queue_member_removed)
-#        self.ami.register_event(
-#            'QueueMemberStatus', self._handle_queue_member_state)
         self.ami.register_event(
             'UserEvent', self._handle_user_event)
         self.redis = api.get_instance()
@@ -239,18 +237,13 @@ class Monitor(object):
     def _handle_join(self, data):
         variables = self._get_quaker_vars(data['variable'])
 
+        self.redis.create_queue_caller(
+            variables['queue_name'], uuid=variables['caller_id'],
+            name=variables['caller_name'], number=variables['caller_number'])
+
         json = self._get_common_headers(variables)
         json['id'] = data['uniqueid']
         json['position'] = data['position']
-
-        info = {
-            'name': json['caller']['name'],
-            'number': json['caller']['number'],
-        }
-
-        self.redis.create_queue_caller(
-            json['queue']['name'], uuid=json['caller']['uuid'],
-            name=json['caller']['name'], number=json['caller']['number'])
 
         LOG.info(json)
         _send_notification('enter', json)
@@ -321,25 +314,6 @@ class Monitor(object):
 
         LOG.info(json)
         _send_notification('member.remove', json)
-
-    def _handle_queue_member_state(self, data):
-        json = {
-            'queue': {
-                'id': None,
-                'name': data['queue'],
-                'number': None,
-            },
-        }
-        json['member'] = {
-            'id': None,
-            'name': data['membername'],
-            'number': self._get_member_number(data['location']),
-        }
-        json['status'] = data['status']
-
-        self.redis.update_queue_member(
-            queue_id=data['queue'], uuid=data['membername'],
-            status=data['status'])
 
     def _handle_queue_member_paused(self, data):
         json = {
