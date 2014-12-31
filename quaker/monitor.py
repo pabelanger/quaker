@@ -158,8 +158,8 @@ class Monitor(object):
         json['reason'] = '19'
 
         self.redis.update_queue_member(
-            queue_id=json['queue']['name'], uuid=json['member']['name'],
-            status=1)
+            queue_id=data['quaker_queue_name'],
+            uuid=data['agentname'], status=1)
 
         LOG.info(json)
         _send_notification('member.cancel', json)
@@ -229,7 +229,7 @@ class Monitor(object):
 
         self.redis.update_queue_member(
             queue_id=json['queue']['name'], uuid=json['member']['name'],
-            status=3)
+            status=2)
 
         LOG.info(json)
         _send_notification('member.connect', json)
@@ -239,7 +239,8 @@ class Monitor(object):
 
         self.redis.create_queue_caller(
             variables['queue_name'], uuid=variables['caller_id'],
-            name=variables['caller_name'], number=variables['caller_number'])
+            name=variables['caller_name'], number=variables['caller_number'],
+            status=1)
 
         json = self._get_common_headers(variables)
         json['id'] = data['uniqueid']
@@ -284,7 +285,7 @@ class Monitor(object):
 
         self.redis.create_queue_member(
             queue_id=json['queue']['id'], uuid=json['member']['id'],
-            number=json['member']['number'])
+            number=json['member']['number'], status=1)
 
         LOG.info(json)
         _send_notification('member.add', json)
