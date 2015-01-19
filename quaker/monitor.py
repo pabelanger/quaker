@@ -53,9 +53,9 @@ class Monitor(object):
         self.ami.register_event('AgentConnect', self._handle_agent_connect)
 #        self.ami.register_event(
 #            'AgentRingNoAnswer', self._handle_agent_ring_no_answer)
-        self.ami.register_event('Join', self._handle_join)
-        self.ami.register_event(
-            'QueueCallerAbandon', self._handle_queue_caller_abandon)
+#        self.ami.register_event('Join', self._handle_join)
+#        self.ami.register_event(
+#            'QueueCallerAbandon', self._handle_queue_caller_abandon)
         self.ami.register_event(
             'QueueMemberAdded', self._handle_queue_member_added)
         self.ami.register_event(
@@ -133,17 +133,32 @@ class Monitor(object):
         return res
 
     def _handle_user_event(self, data):
+        if data['userevent'] == 'QueueMemberCancel':
+            self._handle_queue_member_cancel(data)
+        elif data['userevent'] == 'QueueCallerCreate':
+            self._handle_queue_caller_create(data)
+        else:
+            self._handle_queue_caller_delete(data)
+
+    def _handle_queue_caller_delete(self, data):
+        print '111111111111111111111111111111111111111'
+        try:
+            res = self.redis.get_queue_caller(
+                queue_id=data['quaker_queue_name'],
+                uuid=data['quaker_caller_id'])
+
+            self.redis.delete_queue_caller(
+                res.queue_id, uuid=res.uuid)
+        except Exception as e:
+            pass
+
+    def _handle_queue_member_cancel(self, data):
+        print '555555555555555555555555555555555555555555555555555555555'
         json = {}
-        res = self.redis.get_queue_caller(
-            queue_id=data['quaker_queue_name'],
-            uuid=data['quaker_caller_id'])
         json['caller'] = {
-            'uuid': res.uuid,
-            'created_at': res.created_at,
-            'name': res.name,
-            'number': res.number,
-            'position': res.position,
-            'queue_id': res.queue_id,
+            'uuid': data['quaker_caller_id'],
+            'name': None,
+            'number': None,
         }
         json['queue'] = {
             'id': None,
@@ -160,6 +175,13 @@ class Monitor(object):
         self.redis.update_queue_member(
             queue_id=data['quaker_queue_name'],
             uuid=data['agentname'], status=1)
+
+        try:
+            self.redis.update_queue_caller(
+                queue_id=data['quaker_queue_name'], uuid=data['agentname'],
+                status=1)
+        except Exception as e:
+            pass
 
         LOG.info(json)
         _send_notification('member.cancel', json)
@@ -188,6 +210,10 @@ class Monitor(object):
             'number': self._get_member_number(data['agentcalled']),
         }
 
+        self.redis.update_queue_caller(
+            queue_id=json['queue']['name'], uuid=json['caller']['uuid'],
+            member_uuid=json['member']['name'], status=2)
+
         self.redis.update_queue_member(
             queue_id=json['queue']['name'], uuid=json['member']['name'],
             status=6)
@@ -214,6 +240,7 @@ class Monitor(object):
         _send_notification('member.complete', json)
 
     def _handle_agent_connect(self, data):
+        print '222222222222222222222222222222222222222222'
         variables = self._get_quaker_vars(data['variable'])
 
         json = self._get_common_headers(variables)
@@ -223,6 +250,10 @@ class Monitor(object):
             'name': data['membername'],
             'number': self._get_member_number(data['member']),
         }
+
+        self.redis.update_queue_caller(
+            queue_id=json['queue']['name'], uuid=json['caller']['uuid'],
+            status=3)
 
         self.redis.delete_queue_caller(
             json['queue']['name'], uuid=json['caller']['uuid'])
@@ -234,22 +265,33 @@ class Monitor(object):
         LOG.info(json)
         _send_notification('member.connect', json)
 
-    def _handle_join(self, data):
-        variables = self._get_quaker_vars(data['variable'])
-
-        self.redis.create_queue_caller(
-            variables['queue_name'], uuid=variables['caller_id'],
-            name=variables['caller_name'], number=variables['caller_number'],
+    def _handle_queue_caller_create(self, data):
+        res = self.redis.create_queue_caller(
+            data['quaker_queue_name'], uuid=data['quaker_caller_id'],
+            name=data['quaker_caller_name'], number=data['quaker_caller_number'],
             status=1)
 
-        json = self._get_common_headers(variables)
-        json['id'] = data['uniqueid']
-        json['position'] = data['position']
+        print res.__dict__
 
-        LOG.info(json)
-        _send_notification('enter', json)
+
+
+#    def _handle_join(self, data):
+#        variables = self._get_quaker_vars(data['variable'])
+
+#        self.redis.create_queue_caller(
+#            variables['queue_name'], uuid=variables['caller_id'],
+#            name=variables['caller_name'], number=variables['caller_number'],
+#            status=1)
+
+#        json = self._get_common_headers(variables)
+#        json['id'] = data['uniqueid']
+#        json['position'] = data['position']
+
+#        LOG.info(json)
+#        _send_notification('enter', json)
 
     def _handle_queue_caller_abandon(self, data):
+        print '333333333333333333333333333333333333333333'
         variables = self._get_quaker_vars(data['variable'])
         json = self._get_common_headers(variables)
 
@@ -288,7 +330,7 @@ class Monitor(object):
             number=json['member']['number'], status=1)
 
         LOG.info(json)
-        _send_notification('member.add', json)
+#        _send_notification('member.add', json)
 
     def _handle_queue_member_removed(self, data):
         json = {
@@ -314,7 +356,7 @@ class Monitor(object):
             queue_id=json['queue']['id'], uuid=json['member']['id'])
 
         LOG.info(json)
-        _send_notification('member.remove', json)
+#        _send_notification('member.remove', json)
 
     def _handle_queue_member_paused(self, data):
         json = {
