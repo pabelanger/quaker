@@ -141,7 +141,6 @@ class Monitor(object):
             self._handle_queue_caller_delete(data)
 
     def _handle_queue_caller_delete(self, data):
-        print '111111111111111111111111111111111111111'
         try:
             res = self.redis.get_queue_caller(
                 queue_id=data['quaker_queue_name'],
@@ -153,7 +152,6 @@ class Monitor(object):
             pass
 
     def _handle_queue_member_cancel(self, data):
-        print '555555555555555555555555555555555555555555555555555555555'
         json = {}
         json['caller'] = {
             'uuid': data['quaker_caller_id'],
@@ -240,7 +238,6 @@ class Monitor(object):
         _send_notification('member.complete', json)
 
     def _handle_agent_connect(self, data):
-        print '222222222222222222222222222222222222222222'
         variables = self._get_quaker_vars(data['variable'])
 
         json = self._get_common_headers(variables)
@@ -271,10 +268,6 @@ class Monitor(object):
             name=data['quaker_caller_name'], number=data['quaker_caller_number'],
             status=1)
 
-        print res.__dict__
-
-
-
 #    def _handle_join(self, data):
 #        variables = self._get_quaker_vars(data['variable'])
 
@@ -291,7 +284,6 @@ class Monitor(object):
 #        _send_notification('enter', json)
 
     def _handle_queue_caller_abandon(self, data):
-        print '333333333333333333333333333333333333333333'
         variables = self._get_quaker_vars(data['variable'])
         json = self._get_common_headers(variables)
 
@@ -359,22 +351,13 @@ class Monitor(object):
 #        _send_notification('member.remove', json)
 
     def _handle_queue_member_paused(self, data):
-        json = {
-            'queue': {
-                'id': None,
-                'name': data['queue'],
-                'number': None,
-            },
-        }
-        json['member'] = {
-            'id': None,
-            'name': data['membername'],
-            'number': self._get_member_number(data['location']),
-        }
-        json['reason'] = data['paused']
+        paused = 0
+        if 'reason' in data:
+            paused = data['reason']
 
-        LOG.info(json)
-        _send_notification('member.pause', json)
+        self.redis.update_queue_member(
+            queue_id=data['queue'], uuid=data['membername'],
+            paused=paused)
 
     def run(self):
         self.ami.connect(
